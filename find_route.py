@@ -43,15 +43,15 @@ def read_file(filename: str = "input1.txt") -> dict:
                 adjacency_list[pointA].append((pointB, float(f"{h_weight:.4f}")))
                 adjacency_list[pointB].append((pointA, float(f"{h_weight:.4f}")))
                 
-                # Afegeix una tupla (pointB, weight) a la distance_list de pointA i viceversa
+                # Afegeix una tupla (pointB, distance) a la distance_list de pointA i viceversa
                 distance_list[pointA].append((pointB, distance))
                 distance_list[pointB].append((pointA, distance))
                 
-                # Afegeix una tupla (pointB, weight) a la time_list de pointA i viceversa
+                # Afegeix una tupla (pointB, time) a la time_list de pointA i viceversa
                 time_list[pointA].append((pointB, time))
                 time_list[pointB].append((pointA, time))
                 
-                # Afegeix una tupla (pointB, weight) a la safety_list de pointA i viceversa
+                # Afegeix una tupla (pointB, safety) a la safety_list de pointA i viceversa
                 safety_list[pointA].append((pointB, safety))
                 safety_list[pointB].append((pointA, safety))
                 
@@ -309,20 +309,52 @@ def main():
     filename = "inputs/vilanova.txt"
     
     # Llegeix les dades del fitxer i crea la llista d'adjacència del graf
-    adjacency_list, distance_list, time_list, safety_list = read_file(filename)  
+    adjacency_list, distance_list, time_list, safety_list = read_file(filename)
     
     # Indica que es calcula la ruta òptima
     print("Calculant la ruta òptima...")
+
     
     # Calcula la ruta òptima des de l'origen fins al destí
     optimal_path, costo_total = uniform_cost_search(adjacency_list, origin, destination)
     
+    #print("DL: ", optimal_path)
+    #distance = next((dist for city, dist in distance_list[optimal_path[0]] if city == optimal_path[1]), None)
+    #print(f"The distance between Avinguda del Mar and Carrer del Gran Passeig Marítim is {distance} km")
+    
+    total_distance = 0
+    total_time = 0
+    total_safety = 0
+    
+    # busca en les llistes de distace, time i safety les parelles de carrers i en va sumant el valor numeric que tenen
+    # km si es distancia, min si es temps i el valor de seguretat del carrer
+    for i in range(len(optimal_path) - 1):
+        start = optimal_path[i]
+        end = optimal_path[i + 1]
+        # Find distance between start and end cities if it exists
+        distance = next((dist for city, dist in distance_list[start] if city == end), None)
+        time = next((time for city, time in time_list[start] if city == end), None)
+        safety = next((safety for city, safety in safety_list[start] if city == end), None)
+        if distance and time and safety is not None:
+            total_distance += distance
+            total_time += time
+            total_safety += safety
+        else:
+            print(f"No direct connection found between {start} and {end}")
+            
+    # Round the total distance to two decimal places
+    total_distance_rounded = round(total_distance, 2)
+	
     if optimal_path:
         # Imprimeix la ruta òptima teòrica des de l'origen fins al destí
         print(f"La ruta òptima desde {origin} fins {destination} és:")
         for i, nodo in enumerate(optimal_path, start=1):
             print(f"   {i}. {nodo}")
         print("\nCost total de la ruta òptima: ", costo_total)
+        
+        print(f"La distancia total de la ruta optima es {total_distance_rounded} km")
+        print(f"El temps total de la ruta optima es {total_time} min")
+        print(f"L'indicador de seguretat de la ruta optima es {total_safety}")
         
         # Visualitza el graf només de la ruta òptima
         plot_optimal_route(adjacency_list, "optimal_route.html", path=optimal_path)
