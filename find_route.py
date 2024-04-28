@@ -9,7 +9,7 @@ from graphviz import Graph
 from pyvis.network import Network
 from collections import defaultdict
 
-# PRE: El fitxer "filename" existeix i conté línies amb el format "puntA puntB pes".
+# PRE: El fitxer "filename" existeix i conté línies amb el format "puntA, puntB, distancia, temps, seguretat".
 #      La línia "END OF INPUT" marca la fi del fitxer.
 # POST: S'ha creat un diccionari "adjacency_list" que representa la llista d'adjacència.
 #       Cada clau correspon a un punt del graf, i els seus valors són tuples amb els punts adjacents i els seus pesos associats.
@@ -22,46 +22,121 @@ def read_file(filename: str = "input1.txt") -> dict:
     :return: Un diccionari que representa la llista d'adjacència.
     """
     adjacency_list = defaultdict(list) # Diccionari amb llistes com a valors per a cada clau
+    distance_list = defaultdict(list)
+    time_list = defaultdict(list)
+    safety_list = defaultdict(list)
     with open(filename, 'r') as f:
         # Invariant: El bucle "for line in f" recorre totes les línies del fitxer.
         for line in f:
             line = line.strip() # Elimina espais en blanc al principi i al final de la línia
             if line != 'END OF INPUT':
                 # Invariant: El bucle "for pointA, pointB, weight in line.split()" divideix cada línia en tres parts.
-                pointA, pointB, weight = line.split() # Divideix la línia en tres parts
-                weight = int(weight) # Converteix el pes a un enter
+                pointA, pointB, distance, time, safety = line.split(", ") # Divideix la línia en tres parts
+                distance = float(distance) # Converteix el pes a un enter
+                time = float(time)
+                safety = float(safety)
+                
+                # Calcula el peso heurístico combinando distancia, tiempo y seguridad (suma ponderada)
+                h_weight = heuristic_graph(distance, time, safety, 0.3, 0.6, 0.1)
+               
                 # Afegeix una tupla (pointB, weight) a la llista d'adjacència de pointA i viceversa
-                adjacency_list[pointA].append((pointB, weight))
-                adjacency_list[pointB].append((pointA, weight))
-    return adjacency_list
+                adjacency_list[pointA].append((pointB, float(f"{h_weight:.4f}")))
+                adjacency_list[pointB].append((pointA, float(f"{h_weight:.4f}")))
+                
+                # Afegeix una tupla (pointB, weight) a la distance_list de pointA i viceversa
+                distance_list[pointA].append((pointB, distance))
+                distance_list[pointB].append((pointA, distance))
+                
+                # Afegeix una tupla (pointB, weight) a la time_list de pointA i viceversa
+                time_list[pointA].append((pointB, time))
+                time_list[pointB].append((pointA, time))
+                
+                # Afegeix una tupla (pointB, weight) a la safety_list de pointA i viceversa
+                safety_list[pointA].append((pointB, safety))
+                safety_list[pointB].append((pointA, safety))
+                
+    return adjacency_list, distance_list, time_list, safety_list
 
-def uniform_cost_search(lista_de_adyacencia: dict, origen: str, destino: str) -> list:
-    # Inicializar cola de prioridad con el nodo inicial y un costo de 0
-    pq = [(0, origen, [origen])]
-    # Inicializar conjunto de nodos visitados
-    visitados = set()
+def uniform_cost_search(adjacency_list: dict, origin: str, destination: str) -> list:
+    """
+    Realiza una búsqueda de costo uniforme en un grafo representado por una lista de adyacencia.
 
-    while pq:
-        # Eliminar nodo con menor costo de la cola de prioridad
-        costo, nodo, camino = heapq.heappop(pq)
+    Args:
+        adjacency_list (dict): Lista de adyacencia del grafo.
+        origin (str): Nodo de inicio de la búsqueda.
+        destination (str): Nodo de destino de la búsqueda.
 
-        if nodo == destino:
-            # Si se alcanza el nodo destino, devolver el camino desde el nodo origen hasta el nodo destino
-            return camino
+    Returns:
+        list: Lista que representa el camino óptimo desde el nodo de origen hasta el nodo de destino.
+    """
 
-        if nodo not in visitados:
-            # Marcar nodo como visitado
-            visitados.add(nodo)
-            # Agregar vecinos a la cola de prioridad con sus costos correspondientes
-            for vecino, peso in lista_de_adyacencia[nodo]:
-                if vecino not in visitados:
-                    # Calcular costo del vecino como la suma del costo del nodo actual y el peso de la arista entre el nodo actual y el vecino
-                    costo_vecino = costo + peso
-                    # Agregar vecino a la cola de prioridad con su costo y camino correspondientes
-                    heapq.heappush(pq, (costo_vecino, vecino, camino + [vecino]))
+    # Inicializar una cola de prioridad con el nodo inicial y un costo de 0
+    priority_queue = [(0, origin, [origin])]
+    # Inicializar un conjunto de nodos visitados
+    visited = set()
+
+    while priority_queue:
+        # Eliminar el nodo con el menor costo de la cola de prioridad
+        cost, node, path = heapq.heappop(priority_queue)
+	
+	    # Si se alcanza el nodo destino, devolver el camino desde el nodo origen hasta el nodo destino
+        if node == destination:
+            if cost > 1.0:
+                return [], 1
+            else:
+                return path, cost
+
+        if node not in visited:
+            # Marcar el nodo como visitado
+            visited.add(node)
+            # Agregar los vecinos a la cola de prioridad con sus costos correspondientes
+            for neighbor, weight in adjacency_list[node]:
+                if neighbor not in visited:
+                    # Calcular el costo del vecino como la suma del costo del nodo actual y 
+                    # el peso de la arista entre el nodo actual y el vecino
+                    neighbor_cost = cost + weight
+                    # Agregar el vecino a la cola de prioridad con su costo y camino correspondientes
+                    heapq.heappush(priority_queue, (neighbor_cost, neighbor, path + [neighbor]))
 
     # Si no se alcanza el nodo destino, devolver un camino vacío
-    return []
+    return [], 0
+
+
+# PRE: Las variables 'distance', 'time' y 'safety' representan la distancia,
+#      el tiempo y el nivel de seguridad de una ruta respectivamente.
+#      Las variables 'weight_distance', 'weight_time' y 'weight_safety'
+#      representan los pesos asignados a la distancia, el tiempo y la seguridad
+#      en el cálculo heurístico.
+# POST: Retorna el valor heurístico calculado en base a los valores proporcionados.
+# COSTO: O(1), complejidad temporal constante.
+def heuristic_graph(distance, time, safety, w_distance, w_time, w_safety):
+    """
+    Calcula el valor heurístico para una ruta dada.
+
+    Args:
+        distance (float): La distancia de la ruta.
+        time (float): El tiempo requerido para la ruta.
+        safety (float): El nivel de seguridad de la ruta.
+        weight_distance (float): El peso asignado a la distancia en el cálculo heurístico.
+        weight_time (float): El peso asignado al tiempo en el cálculo heurístico.
+        weight_safety (float): El peso asignado a la seguridad en el cálculo heurístico.
+
+    Returns:
+        float: El valor heurístico para la ruta dada.
+    """
+    MAX_DISTANCE = 250  # El valor máximo posible de la distancia
+    MAX_TIME = 3  # El valor máximo posible del tiempo
+    MAX_SAFETY = 10  # El valor máximo posible de la seguridad
+
+    # Normalizar los valores
+    distance_normalized = distance / MAX_DISTANCE
+    time_normalized = time / MAX_TIME
+    safety_normalized = safety / MAX_SAFETY
+    
+    # Calcular el valor heurístico
+    heuristic_value = (w_distance * distance_normalized + w_time * time_normalized + w_safety * safety_normalized)
+
+    return heuristic_value
 
 
 # PRE: La variable 'adjacency_list' es un diccionario que representa la lista de adyacencia del grafo.
@@ -80,31 +155,85 @@ def plot_graph(adjacency_list: dict, path: list = []):
         None
     """
     # Crear un objeto Network para visualizar el grafo
-    net = Network(notebook=True, height="750px", width="100%", cdn_resources='in_line') # Se configura para ser mostrado en un entorno de notebook, con una altura de 750px y un ancho del 100% de la ventana del navegador. Además se especifica que los recursos necesarios para visualizar el grafo se incrustarán directamente en el HTML generado.   
+    net = Network(notebook=True, height="750px", width="100%", cdn_resources='in_line') 
+    # Se configura para ser mostrado en un entorno de notebook, con una altura de 750px y un ancho del 100% 
+    # de la ventana del navegador. Además se especifica que los recursos necesarios para visualizar el grafo 
+    # se incrustarán directamente en el HTML generado.   
 
     # Agregar nodos al grafo
     for node in adjacency_list.keys():
-        net.add_node(node, label=node, title=node) # Invariante: este bucle itera sobre cada nodo en el diccionario “adjacency_list” y agrega cada nodo al grafo “net”. El “label” y el “title” de cada nodo se establecen en el nombre del nodo.
+        net.add_node(node, label=node, title=node) 
+        # Invariante: este bucle itera sobre cada nodo en el diccionario “adjacency_list” y agrega cada 
+        # nodo al grafo “net”. El “label” y el “title” de cada nodo se establecen en el nombre del nodo.
 
     # Agregar aristas al grafo
     for node, connections in adjacency_list.items():
         for connection, weight in connections:
-            net.add_edge(node, connection, label=str(weight), title=str(weight)) # Invariante: este bucle anidado itera sobre cada nodo en el diccionario “adjacency_list” y sus conexiones. Para cada conexión, agrega una arista al grafo “net”. El “label” y el “title” de cada arista se establecen en el peso de la conexión.
+            net.add_edge(node, connection, label=str(weight), title=str(weight)) 
+            # Invariante: este bucle anidado itera sobre cada nodo en el diccionario “adjacency_list” 
+            # y sus conexiones. Para cada conexión, agrega una arista al grafo “net”. El “label” y el 
+            # “title” de cada arista se establecen en el peso de la conexión.
 
     # Resaltar los nodos y aristas en la ruta óptima, si se proporciona
     if path:
         for node in path:
-            net.get_node(node)["color"] = "green" # Invariante: este bucle itera sobre cada nodo en la lista “path”, estableciendo el color de cada nodo en verde.
+            net.get_node(node)["color"] = "green" 
+            # Invariante: este bucle itera sobre cada nodo en la lista “path”, estableciendo el color 
+            # de cada nodo en verde.
         for i in range(len(path) - 1):
             from_node = path[i]
             to_node = path[i + 1]
             for edge in net.edges:
                 if edge["from"] == from_node and edge["to"] == to_node or edge["from"] == to_node and edge["to"] == from_node:
-                    edge["color"] = "red" # Invariante: este bucle itera sobre cada par de nodos consecutivos en “path”, encontrando la arista correspondiente en el grafo y estableciendo su color en rojo
+                    edge["color"] = "red" 
+                    # Invariante: este bucle itera sobre cada par de nodos consecutivos en “path”, 
+                    # encontrando la arista correspondiente en el grafo y estableciendo su color en rojo
                     break
 
     # Generar y mostrar el grafo en un archivo HTML
     net.show("graph.html")
+
+
+# PRE: La variable 'adjacency_list' es un diccionario que representa la lista de adyacencia del grafo.
+#      La variable 'path' es una lista que contiene la ruta óptima en el grafo, si se proporciona.
+# POST: Se ha generado y mostrado el grafo en un archivo HTML.
+# Costo espacial-temporal: O(V + E), donde V es el número de vértices y E es el número de aristas en el grafo.
+def plot_optimal_route(adjacency_list: dict, name: str, path: list = []):
+    """
+    Genera y muestra un grafo visualmente utilizando la biblioteca pyvis,
+    resaltando solo los nodos y aristas que forman parte de la ruta óptima.
+
+    Args:
+        adjacency_list (dict): Diccionario que representa la lista de adyacencia del grafo.
+        path (list): Lista que representa la ruta óptima en el grafo.
+
+    Returns:
+        None
+    """
+    # Crear un objeto Network para visualizar el grafo
+    net = Network(notebook=True, height="750px", width="100%", cdn_resources='in_line')
+    
+    # Agregar nodos y aristas que forman parte de la ruta óptima
+    for i in range(len(path) - 1):
+        from_node = path[i]
+        to_node = path[i + 1]
+    
+        # Agregar el nodo de origen si aún no ha sido agregado
+        if from_node not in net.get_nodes():
+            net.add_node(from_node, label="origen: "+from_node, title=from_node, color="green")
+
+        # Agregar el nodo de destino si aún no ha sido agregado
+        if to_node not in net.get_nodes():
+            net.add_node(to_node, label=to_node, title=to_node, color="green")
+ 
+        # Agregar la arista entre el nodo de origen y el nodo de destino
+        for connection, weight in adjacency_list[from_node]:
+            if connection == to_node:
+                net.add_edge(from_node, connection, label=str(weight), title=str(weight), color="red")
+
+    # Mostrar el grafo en un archivo HTML
+    net.show(name)
+
 
 def user_decide_next_move(adjacency_list: dict, origin: str, destination: str, optimal_path):
     """
@@ -167,24 +296,57 @@ def user_decide_next_move(adjacency_list: dict, origin: str, destination: str, o
 
 
 def main():
-    os.system('cls' if os.name == 'nt' else 'clear')  # Esborra la pantalla per a una millor visualització
-    origin = str(input("Escribe la ciudad origen: "))  # Sol·licita a l'usuari la ciutat d'origen
-    destination = str(input("Escribe la ciudad destino: "))  # Sol·licita a l'usuari la ciutat de destí
+    # Esborra la pantalla per a una millor visualització
+    os.system('cls' if os.name == 'nt' else 'clear')
+    
+    # Sol·licita a l'usuari la ciutat d'origen
+    origin = str(input("Escriu el punt d'origen: "))  
+    
+    # Sol·licita a l'usuari la ciutat de destí
+    destination = str(input("Escriu el punt de desti: ")) 
 
-    filename = "inputs/espanya.txt"  # Defineix el nom del fitxer que conté les dades del graf
-    adjacency_list = read_file(filename)  # Llegeix les dades del fitxer i crea la llista d'adjacència del graf
-
-    print("Calculando la ruta óptima...")  # Indica que es calcula la ruta òptima
-    optimal_path = uniform_cost_search(adjacency_list, origin, destination)  # Calcula la ruta òptima des de l'origen fins al destí
+    # Defineix el nom del fitxer que conté les dades del graf
+    filename = "inputs/vilanova.txt"
+    
+    # Llegeix les dades del fitxer i crea la llista d'adjacència del graf
+    adjacency_list, distance_list, time_list, safety_list = read_file(filename)  
+    
+    # Indica que es calcula la ruta òptima
+    print("Calculant la ruta òptima...")
+    
+    # Calcula la ruta òptima des de l'origen fins al destí
+    optimal_path, costo_total = uniform_cost_search(adjacency_list, origin, destination)
+    
     if optimal_path:
-        print(f"La ruta óptima teórica desde {origin} hasta {destination} es: {' -> '.join(optimal_path)}")
         # Imprimeix la ruta òptima teòrica des de l'origen fins al destí
-        plot_graph(adjacency_list, path=optimal_path)  # Visualitza el graf amb la ruta òptima
+        print(f"La ruta òptima desde {origin} fins {destination} és:")
+        for i, nodo in enumerate(optimal_path, start=1):
+            print(f"   {i}. {nodo}")
+        print("\nCost total de la ruta òptima: ", costo_total)
+        
+        # Visualitza el graf només de la ruta òptima
+        plot_optimal_route(adjacency_list, "optimal_route.html", path=optimal_path)
+        # Visualitza el graf sencer amb la ruta òptima
+        plot_graph(adjacency_list, path=optimal_path)
+        
+        # Visualitza el graf només de la ruta òptima amb la distancia
+        plot_optimal_route(distance_list, "distance_route.html", path=optimal_path)
+        # Visualitza el graf només de la ruta òptima amb el temps
+        plot_optimal_route(time_list, "time_route.html", path=optimal_path)
+        # Visualitza el graf només de la ruta òptima amb el safety
+        plot_optimal_route(safety_list, "safety_route.html", path=optimal_path)
+        
     else:
-        print("No se encontró una ruta óptima.")  # Indica que no s'ha trobat cap ruta òptima
+        if costo_total == 0:
+            # Indica que no s'ha trobat cap ruta òptima
+            print("No s'ha trobat una ruta òptima.")
+        else:
+	    # Indica que el cost heuristic es major que 1
+            print("La ruta òptima supera l'autonomia del vehicle elèctric-autonom.")
         return
-
-    user_decide_next_move(adjacency_list, origin, destination, optimal_path)  # Permet a l'usuari decidir els següents moviments
-
+    
+    # Permet a l'usuari decidir els següents moviments
+    #user_decide_next_move(adjacency_list, origin, destination, optimal_path)  
 if __name__ == '__main__':
-    main()  # Inicia l'execució del programa principal si s'executa com a script
+    # Inicia l'execució del programa principal si s'executa com a script
+    main()  
