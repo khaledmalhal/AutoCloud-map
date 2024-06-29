@@ -5,10 +5,10 @@ import math
 
 def llegir_fitxer(connexions_nodes) -> dict:
     """
-    Llegeix un fitxer JSON amb les connexions entre nodes i crea una llista d'adjacència.
+    Llegeix un fitxer JSON que conté informació de les connexions entre nodes i retorna un diccionari de llista d'adjacència.
     
-    PRE: connexions_nodes és el camí al fitxer JSON que conté les connexions.
-    POST: retorna una llista d'adjacència que representa el graf.
+    PRE: connexions_nodes és el nom del fitxer que conté les connexions entre nodes.
+    POST: retorna un diccionari que representa la llista d'adjacència dels nodes.
     """
     llista_adjacencia = defaultdict(list)
     with open(connexions_nodes, 'r') as f:
@@ -22,33 +22,31 @@ def llegir_fitxer(connexions_nodes) -> dict:
 
 def heuristic_graf(distancia, temps, w_distancia, w_temps):
     """
-    Calcula el pes heurístic per una aresta del graf.
+    Calcula el valor heurístic donat una distància i temps amb els seus pesos respectius.
     
-    PRE: distancia és la distància entre dos nodes.
-         temps és el temps de viatge entre dos nodes.
-         w_distancia és el pes de la distància en la heurística.
-         w_temps és el pes del temps en la heurística.
+    PRE: distancia i temps són valors numèrics de distància i temps respectivament.
+         w_distancia i w_temps són els pesos per la distància i el temps respectivament.
     POST: retorna el valor heurístic calculat.
     """
     MAX_DISTANCIA, MAX_TEMPS = 250000, 10800
     return (w_distancia * (distancia / MAX_DISTANCIA) + w_temps * (temps / MAX_TEMPS))
 
-def obtenir_coordenades(id_node, coordenades_nodes):
+def obtenir_coordenades(_id, coordenades_nodes):
     """
     Obté les coordenades d'un node donat el seu ID.
     
-    PRE: id_node és l'identificador del node.
+    PRE: _id és l'identificador del node.
          coordenades_nodes és un diccionari amb les coordenades dels nodes.
-    POST: retorna les coordenades del node si existeixen, en cas contrari (None, None).
+    POST: retorna una tupla amb la longitud i latitud del node.
     """
-    return coordenades_nodes.get(id_node, (None, None))
+    return coordenades_nodes.get(_id, (None, None))
 
 def distancia(coord1, coord2):
     """
     Calcula la distància euclidiana entre dues coordenades.
     
-    PRE: coord1 i coord2 són tuples amb la longitud i latitud de les coordenades.
-    POST: retorna la distància euclidiana entre coord1 i coord2.
+    PRE: coord1 i coord2 són tuples que contenen longitud i latitud.
+    POST: retorna la distància euclidiana entre les dues coordenades.
     """
     lon1, lat1 = coord1
     lon2, lat2 = coord2
@@ -58,17 +56,17 @@ def trobar_node_mes_proper(coordenades_objectiu, coordenades_nodes):
     """
     Troba el node més proper a unes coordenades donades.
     
-    PRE: coordenades_objectiu és una tupla amb la longitud i latitud de les coordenades objectiu.
+    PRE: coordenades_objectiu és una tupla amb longitud i latitud de l'objectiu.
          coordenades_nodes és un diccionari amb les coordenades dels nodes.
     POST: retorna l'ID del node més proper a les coordenades objectiu.
     """
-    return min(coordenades_nodes, key=lambda id_node: distancia(coordenades_objectiu, coordenades_nodes[id_node]))
+    return min(coordenades_nodes, key=lambda _id: distancia(coordenades_objectiu, coordenades_nodes[_id]))
 
 def cerca_cost_uniforme(llista_adjacencia: dict, origen: str, desti: str):
     """
-    Realitza una cerca de cost uniforme per trobar el camí més curt entre dos nodes.
+    Implementa l'algorisme de cerca de cost uniforme per trobar el camí òptim entre dos nodes.
     
-    PRE: llista_adjacencia és un diccionari que representa el graf.
+    PRE: llista_adjacencia és un diccionari que representa la llista d'adjacència dels nodes.
          origen és l'ID del node d'origen.
          desti és l'ID del node de destí.
     POST: retorna el camí òptim, el cost total, la distància total i el temps total.
@@ -90,21 +88,21 @@ def carregar_coordenades(info_nodes):
     """
     Carrega les coordenades dels nodes des d'un fitxer JSON.
     
-    PRE: info_nodes és el camí al fitxer JSON que conté la informació dels nodes.
+    PRE: info_nodes és el nom del fitxer que conté la informació dels nodes.
     POST: retorna un diccionari amb les coordenades dels nodes.
     """
     with open(info_nodes, 'r') as f:
-        return {str(entrada['id_node']): (entrada['coordenades']['longitud'], entrada['coordenades']['latitud']) for entrada in json.load(f)}
+        return {str(entrada['_id']): (entrada['coordenades']['longitud'], entrada['coordenades']['latitud']) for entrada in json.load(f)}
 
 def main(lat_origen, long_origen, lat_desti, long_desti, preu_km, consum_kWh, capacitat_bateria_kWh):
     """
-    Funció principal que calcula la ruta òptima entre dos punts.
+    Funció principal que calcula la ruta òptima entre dos punts donats.
     
     PRE: lat_origen i long_origen són les coordenades de l'origen.
          lat_desti i long_desti són les coordenades del destí.
-         preu_km és el cost per quilòmetre.
-         consum_kWh és el consum per quilòmetre.
-         capacitat_bateria_kWh és la capacitat de la bateria del vehicle.
+         preu_km és el preu per quilòmetre.
+         consum_kWh és el consum en kWh per quilòmetre.
+         capacitat_bateria_kWh és la capacitat de la bateria en kWh.
     POST: retorna un diccionari amb la informació de la ruta òptima.
     """
     connexions_nodes, info_nodes = "/code/app/calcul_rutes/inputs/connexio_nodes.json", "/code/app/calcul_rutes/inputs/info_nodes.json"
@@ -117,8 +115,11 @@ def main(lat_origen, long_origen, lat_desti, long_desti, preu_km, consum_kWh, ca
     
     cami_optim, cost_total, dist_total, temps_total = cerca_cost_uniforme(llista_adjacencia, node_origen, node_desti)
     
-    if not cami_optim or cost_total == float('inf'):
-        raise ValueError("No s'ha trobat una ruta òptima o supera l'autonomia del vehicle elèctric-autònom.")
+    if not cami_optim:
+        raise ValueError("No s'ha trobat una ruta òptima.")
+    
+    if cost_total == float('inf'):
+        raise ValueError("La ruta supera l'autonomia del vehicle elèctric-autònom.")
     
     coordenades = [{"longitud": long_origen, "latitud": lat_origen}] + [
         {"longitud": lon, "latitud": lat} for node in cami_optim for lon, lat in [obtenir_coordenades(node, coordenades_nodes)]
