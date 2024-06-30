@@ -22,13 +22,13 @@ def main(ruta, posicio_actual):
          posicio_actual és el node actual en la ruta.
     POST: retorna l'atribut vianants del següent node en la ruta, en cas contrari retorna False.
     """
-    nodes_vianants_dict = { (node["coordenades"]["latitud"], node["coordenades"]["longitud"]): node['vianants'] for node in conn['cloud']['carrer'].find({"vianants": True}) }
+    nodes_vianants_dict = { (node["coordenades"]["longitud"], node["coordenades"]["latitud"]): node['vianants'] for node in conn['cloud']['carrer'].find({"vianants": True}) }
     
     seguent_node = trobar_seguent_node(ruta, posicio_actual)
     if seguent_node is None:
         return False
     
-    seguent_node_coords = (seguent_node['latitud'], seguent_node['longitud'])
+    seguent_node_coords = (seguent_node['longitud'], seguent_node['latitud'])
     
     return nodes_vianants_dict.get(seguent_node_coords, False)
 
