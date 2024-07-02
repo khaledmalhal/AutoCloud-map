@@ -3,7 +3,9 @@ import json
 def cargar_coordenadas(archivo):
     try:
         with open(archivo, 'r', encoding='utf-8') as file:
-            return json.load(file)['coordenadas']
+            data = json.load(file)
+            print("Datos cargados del archivo:", data)
+            return data['coordenadas']
     except FileNotFoundError:
         print("El archivo no se encontró.")
     except json.JSONDecodeError:
@@ -11,8 +13,13 @@ def cargar_coordenadas(archivo):
     return []
 
 def generar_html(coordenadas, archivo_salida):
+    if not coordenadas:
+        print("La lista de coordenadas está vacía.")
+        return
+    
     inicio = coordenadas[0]
     fin = coordenadas[-1]
+    print(f"Inicio: {inicio}, Fin: {fin}")
 
     html_content = f"""<!DOCTYPE html>
 <html>
@@ -63,20 +70,10 @@ def generar_html(coordenadas, archivo_salida):
                 "line-cap": "round"
             }},
             "paint": {{
-                "line-color": "#ff0000",
-                "line-width": 5
+                "line-color": "#888",
+                "line-width": 6
             }}
         }});
-
-        // Añadir marca de inicio
-        new mapboxgl.Marker({{ color: 'green' }})
-            .setLngLat([{inicio[0]}, {inicio[1]}])
-            .addTo(map);
-
-        // Añadir marca de fin
-        new mapboxgl.Marker({{ color: 'red' }})
-            .setLngLat([{fin[0]}, {fin[1]}])
-            .addTo(map);
     }});
 </script>
 </body>
@@ -85,13 +82,13 @@ def generar_html(coordenadas, archivo_salida):
     with open(archivo_salida, 'w', encoding='utf-8') as file:
         file.write(html_content)
 
-def main():
-    archivo_json = 'coordenadas.json'
-    archivo_salida = 'mapa_ruta.html'
-    coordenadas = cargar_coordenadas(archivo_json)
-    if coordenadas:
-        generar_html(coordenadas, archivo_salida)
-
 if __name__ == "__main__":
-    main()
-
+    import sys
+    if len(sys.argv) != 3:
+        print("Uso: python generar_mapa.py <archivo_coordenadas> <archivo_salida>")
+    else:
+        archivo_coordenadas = sys.argv[1]
+        archivo_salida = sys.argv[2]
+        coordenadas = cargar_coordenadas(archivo_coordenadas)
+        print("Coordenadas cargadas:", coordenadas)
+        generar_html(coordenadas, archivo_salida)

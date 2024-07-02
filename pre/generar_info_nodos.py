@@ -55,7 +55,7 @@ def guardar_info_nodos(info_nodos, archivo):
 def main():
     archivo_json = 'Vilanova.json'
     archivo_salida = 'info_nodos.txt'
-    access_token = 'pk.eyJ1IjoiYWpidiIsImEiOiJjbHdmNTRscnoxbGgxMmlwYThqZDJmNmo2In0.Fxyr0FGk196DaN6v7Z71Zg'
+    access_token = 'pk.eyJ1IjoiYWRyaWFucm9tZSIsImEiOiJjbHZzZWRmdzkweWpqMmpvZDk1ZGo0ZGt3In0._HcHyWtiqcHmWFRm7jD5nQ'
     
     data = cargar_datos(archivo_json)
     if not data:

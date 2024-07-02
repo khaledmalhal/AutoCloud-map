@@ -1,70 +1,55 @@
-# Craxify-Machine-Learning
-## Preparació
-En aquesta secció, s’explica pas a pas com preparar un entorn de desenvolupament local en un sistema basat en Ubuntu, incloent-hi la instal·lació de Python i diverses llibreries útils com Matplotlib, NetworkX, Graphviz i pyvis. Aquestes llibreries són fonamentals per a la visualització de dades, l'anàlisi de xarxes i les tasques relacionades amb la geolocalització en Python.
+# Projecte de Rutes i Prevenció d'Accidents
 
-### Actualitzar el sistema
-Abans de començar amb la instal·lació de les llibreries, és recomanable actualitzar el sistema per assegurar-se que es tenen les darreres versions de tots els paquets disponibles. Per fer-ho, s’ha d’executar la següent comanda:
+Aquest repositori conté dos scripts principals, `find_route.py` i `prevent_accident.py`, que tenen com a objectiu trobar rutes òptimes i prevenir accidents respectivament. A continuació es descriuen en detall cada un dels scripts.
 
-```
-sudo apt-get update
-```
+## find_route.py
 
-Aquesta comanda actualitzarà la llista de paquets disponibles i les seves versions al sistema.
+Aquest script s'encarrega de trobar la ruta òptima entre dos punts en una xarxa de nodes. Utilitza l'algoritme A* per trobar el camí més curt tenint en compte la distància i el temps.
 
-### Instal·lar Python 3
-Python és un llenguatge de programació de codi obert àmpliament utilitzat per a una gran varietat d'aplicacions. En aquest cas, instal·larem la versió 3 de Python, que és la versió més recent i recomanada en molts casos. Executa la següent comanda per instal·lar Python 3:
+### Funcionalitats
 
-```
-sudo apt-get install python3 -y
-```
+- **Llegeix les connexions entre nodes des d'un fitxer JSON.**
+- **Calcula el valor heurístic utilitzant distància i temps.**
+- **Troba les coordenades d'un node donat el seu ID.**
+- **Calcula la distància euclidiana entre dues coordenades.**
+- **Implementa l'algoritme A* per trobar la ruta òptima.**
+- **Genera informació detallada sobre la ruta trobada, incloent cost, consum i bateria necessària.**
 
-### Instal·lar pip (Gestor de paquets de Python)
-Pip és una eina que ens permet instal·lar i gestionar paquets de Python addicionals que no estan inclosos en la distribució estàndard. La següent comanda ens permetrà instal·lar pip per a Python 3:
+### Ús
 
-```
-sudo apt-get install python3-pip -y
-```
+1. **Execució**:
+    ```bash
+    python find_route.py
+    ```
 
-### Instal·lar Matplotlib
-Matplotlib és una llibreria de Python que ens permet generar gràfics de gran qualitat amb facilitat. És una eina fonamental per a la visualització de dades en Python. Per instal·lar Matplotlib, utilitza la següent comanda:
+2. **Funcions principals**:
+    - `llegir_fitxer(connexions_nodes)`: Llegeix les connexions entre nodes des d'un fitxer JSON i retorna un diccionari de llista d'adjacència.
+    - `heuristic_graf(distancia, temps, w_distancia, w_temps)`: Calcula el valor heurístic donat una distància i temps amb els seus pesos respectius.
+    - `obtenir_coordenades(_id, coordenades_nodes)`: Obté les coordenades d'un node donat el seu ID.
+    - `distancia(coord1, coord2)`: Calcula la distància euclidiana entre dues coordenades.
+    - `a_star(inici, final, connexions, coordenades_nodes)`: Implementa l'algoritme A* per trobar la ruta òptima.
 
-```
-sudo apt-get install python3-matplotlib -y
-```
+## prevent_accident.py
 
-### Instal·lar NetworkX
-NetworkX és una llibreria de Python per a l'anàlisi de xarxes i grafs. És una eina potent per a la creació, la manipulació i l'estudi d'estructures de xarxes complexes. Per instal·lar NetworkX, utilitza la següent comanda:
+Aquest script comprova si el següent node en una ruta específica té presència de vianants, amb l'objectiu de prevenir accidents.
 
-```
-sudo apt-get install python3-networkx -y
-```
+### Funcionalitats
 
-### Instal·lar Graphviz
-Graphviz és una eina per a la visualització de grafs i xarxes. És especialment útil quan es vol representar visualment les estructures de xarxes generades amb NetworkX. Per instal·lar Graphviz, utilitza la següent comanda:
+- **Troba el següent node en una ruta donada la posició actual.**
+- **Comprova si hi ha presència de vianants en el següent node.**
 
-```
-sudo apt-get install python3-graphviz -y
-```
+### Ús
 
-### Instal·lar pyvis
-Pyvis és una llibreria de Python per a la visualització interactiva de xarxes i grafs. Proporciona una manera senzilla de crear representacions visuals interactives de les xarxes generades amb NetworkX. Per instal·lar pyvis, utilitza la següent comanda:
+1. **Execució**:
+    ```bash
+    python prevent_accident.py
+    ```
 
-```
-sudo pip3 install pyvis
-```
+2. **Funcions principals**:
+    - `trobar_seguent_node(ruta, posicio_actual)`: Troba el següent node en la ruta donada la posició actual.
+    - `main(ruta, posicio_actual)`: Funció principal que comprova si el següent node en la ruta té presència de vianants.
 
-### Clonar el repositori git
-Un cop has preparat el teu entorn de desenvolupament local i instal·lat totes les biblioteques necessàries, el següent pas és clonar el repositori Git que conté el codi font del projecte. Assumint que ja tens Git instal·lat i configurat, pots executar la següent instrucció al teu terminal:
+## Fitxers de Configuració
 
-```
-git clone https://github.com/CRAAXify/Craxify-Machine-Learning.git
-```
-
-## Execució
-Per executar el script find_route.py, obre una terminal i navega fins al directori on es troba el fitxer. A continuació, executa la següent comanda:
-
-```
-python3 find_route.py
-```
-
-Amb això, l'script s'executarà utilitzant Python 3 i podreu començar a utilitzar-lo per trobar rutes segons calgui.
+- `connexio_nodes.json`: Conté informació de les connexions entre nodes amb distàncies i temps associats.
+- `info_nodes.json`: Conté informació addicional sobre els nodes, incloent coordenades i presència de vianants.
