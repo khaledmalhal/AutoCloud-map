@@ -1,0 +1,35 @@
+## Generation of map files
+
+Using Overpass API, it is possible to export maps in a JSON format. The following files are generated using their respective API calls.
+
+### Vilanova.json:
+
+**Unknown**
+
+### Vilanova2.json:
+
+```
+[out:json];
+
+area[name="Vilanova i la Geltrú"]->.a;
+(
+  node(area.a)[highway];
+   way(area.a)[highway];
+   rel(area.a)[highway];
+);
+out;
+```
+
+### Vilanova3.json:
+
+```
+[out:json];
+
+area[name="Vilanova i la Geltrú"]->.a;
+(
+  node(area.a);
+   way(area.a)[highway];
+   rel(area.a);
+);
+out;
+```
