@@ -2,6 +2,7 @@ from collections import defaultdict
 import heapq
 import json
 import math
+import sys
 
 def llegir_fitxer(connexions_nodes) -> dict:
     """
@@ -105,7 +106,7 @@ def main(lat_origen, long_origen, lat_desti, long_desti, preu_km, consum_kWh, ca
          capacitat_bateria_kWh és la capacitat de la bateria en kWh.
     POST: retorna un diccionari amb la informació de la ruta òptima.
     """
-    connexions_nodes, info_nodes = "/code/app/calcul_rutes/inputs/connexio_nodes.json", "/code/app/calcul_rutes/inputs/info_nodes.json"
+    connexions_nodes, info_nodes = "inputs/connexio_nodes.json", "inputs/info_nodes.json"
     
     llista_adjacencia = llegir_fitxer(connexions_nodes)
     coordenades_nodes = carregar_coordenades(info_nodes)
@@ -135,4 +136,14 @@ def main(lat_origen, long_origen, lat_desti, long_desti, preu_km, consum_kWh, ca
     }
 
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) != 8:
+        exit(-1)
+    lat_origin  = float(sys.argv[1])
+    long_origin = float(sys.argv[2])
+    lat_dest    = float(sys.argv[3])
+    long_dest   = float(sys.argv[4])
+    price_km    = float(sys.argv[5])
+    consumption = float(sys.argv[6])
+    capacity    = float(sys.argv[7])
+
+    print(json.dumps(main(lat_origin, long_origin, lat_dest, long_dest, price_km, consumption, capacity), indent=4))

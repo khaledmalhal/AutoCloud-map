@@ -1,9 +1,14 @@
 import json
 import requests
 import time
+import os
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
+from urllib3.util.retry import Retry
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dotenv import load_dotenv
+
+num = 1
+len_elements = 0
 
 def cargar_datos(archivo):
     try:
@@ -16,6 +21,7 @@ def cargar_datos(archivo):
     return None
 
 def obtener_direccion(lat, lon, access_token, session, cache):
+    global num, len_elements
     if (lat, lon) in cache:
         return cache[(lat, lon)]
     
@@ -29,13 +35,14 @@ def obtener_direccion(lat, lon, access_token, session, cache):
         if datos['features']:
             direccion = datos['features'][0]['place_name']
             cache[(lat, lon)] = direccion
+            num = num + 1
+            print('Processed the element %d of %d' % (num, len_elements), end='\r')
             return direccion
         else:
             return "No se encontró ninguna dirección para las coordenadas dadas."
     except requests.RequestException as e:
         if isinstance(e, requests.HTTPError) and e.response.status_code == 429:
-            print("Error 429: Demasiadas solicitudes. El programa se pausará durante 1 minuto.")
-            time.sleep(60)  # Pausa durante 1 minuto
+            time.sleep(30)  # Pausa durante 5 segundos
             return obtener_direccion(lat, lon, access_token, session, cache)  # Reintentar la solicitud
         else:
             return f"Error en la solicitud: {e}"
@@ -45,17 +52,24 @@ def procesar_nodo(element, access_token, session, cache):
     lat = element['lat']
     lon = element['lon']
     direccion = obtener_direccion(lat, lon, access_token, session, cache)
-    return f"[{nodo_id}], [{lon},{lat}], [{direccion}], [disponible]"
+    return {"node_id": nodo_id,
+            "coordinates": {
+                "longitude": lon,
+                "latitude": lat
+            },
+            "address": direccion,
+            "status": "disponible"}
 
 def guardar_info_nodos(info_nodos, archivo):
     with open(archivo, 'w', encoding='utf-8') as file:
-        for info in info_nodos:
-            file.write(info + '\n')
+        json.dump(info_nodos, file, indent=2)
 
 def main():
-    archivo_json = 'Vilanova.json'
-    archivo_salida = 'info_nodos.txt'
-    access_token = 'pk.eyJ1IjoiYWRyaWFucm9tZSIsImEiOiJjbHZzZWRmdzkweWpqMmpvZDk1ZGo0ZGt3In0._HcHyWtiqcHmWFRm7jD5nQ'
+    global len_elements
+    load_dotenv()
+    archivo_json = 'Vilanova3.json'
+    archivo_salida = 'info_nodos.json'
+    access_token = os.getenv("MAPBOX_ACCESS_TOKEN")
     
     data = cargar_datos(archivo_json)
     if not data:
@@ -69,6 +83,8 @@ def main():
     session.mount('https://', adapter)
 
     info_nodos = []
+
+    len_elements = len(data['elements'])
 
     with ThreadPoolExecutor(max_workers=10) as executor:
         futures = [executor.submit(procesar_nodo, element, access_token, session, cache) for element in data['elements'] if element['type'] == 'node']

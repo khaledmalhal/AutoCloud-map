@@ -1,9 +1,14 @@
 import json
 import requests
 import time
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
+from urllib3.util.retry import Retry
+from dotenv import load_dotenv
+
+num = 1
+len_elements = 0
 
 def cargar_datos(archivo):
     try:
@@ -16,16 +21,19 @@ def cargar_datos(archivo):
     return None
 
 def obtener_distancia_tiempo(coordenadas_origen, coordenadas_destino, access_token, session):
+    global num
+    global len_elements
     url = f"https://api.mapbox.com/directions/v5/mapbox/driving/{coordenadas_origen};{coordenadas_destino}?access_token={access_token}"
     response = session.get(url)
     if response.status_code == 200:
         data = response.json()
         distancia = data['routes'][0]['distance']
         tiempo = data['routes'][0]['duration']
+        num = num + 1
+        print('Processed the element %d of %d' % (num, len_elements), end='\r')
         return distancia, tiempo
     elif response.status_code == 429:
-        print("Error 429: Demasiadas solicitudes. El programa se pausará durante 1 minuto.")
-        time.sleep(60)  # Pausa durante 1 minuto
+        time.sleep(10)  # Pausa durante 10 segundos
         return obtener_distancia_tiempo(coordenadas_origen, coordenadas_destino, access_token, session)  # Reintentar la solicitud
     else:
         print("Error al obtener la distancia y tiempo:", response.text)
@@ -37,18 +45,19 @@ def procesar_conexion(nodo1, nodo2, nodos_coordenadas, access_token, session):
         lon2, lat2 = nodos_coordenadas[nodo2]
         distancia, tiempo = obtener_distancia_tiempo(f"{lon1},{lat1}", f"{lon2},{lat2}", access_token, session)
         if distancia is not None and tiempo is not None:
-            return f"{nodo1}, {nodo2}, {distancia}, {tiempo}"
+            return {"node1": nodo1, "node2": nodo2, "distance": distancia, "time": tiempo}
     return None
 
 def guardar_conexiones(conexiones, archivo_salida):
     with open(archivo_salida, 'w', encoding='utf-8') as file:
-        for conexion in conexiones:
-            file.write(conexion + '\n')
+        json.dump(conexiones, file, indent=2)
 
 def main():
-    archivo_json = 'Vilanova.json'
-    archivo_salida = 'conexion_nodos.txt'
-    access_token = 'pk.eyJ1IjoiYWRyaWFucm9tZSIsImEiOiJjbHZzZWRmdzkweWpqMmpvZDk1ZGo0ZGt3In0._HcHyWtiqcHmWFRm7jD5nQ'
+    global len_elements
+    load_dotenv()
+    archivo_json = 'Vilanova3.json'
+    archivo_salida = 'conexion_nodos.json'
+    access_token = os.getenv('MAPBOX_ACCESS_TOKEN')
 
     data = cargar_datos(archivo_json)
     if not data:
@@ -69,8 +78,10 @@ def main():
     adapter = HTTPAdapter(max_retries=retry)
     session.mount('https://', adapter)
 
+    len_elements = len(data['elements'])
     with ThreadPoolExecutor(max_workers=10) as executor:
         futures = []
+        num = 1
         for element in data['elements']:
             if element['type'] == 'way':
                 nodes = element['nodes']
