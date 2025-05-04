@@ -4,96 +4,127 @@ import json
 import math
 import sys
 
-def llegir_fitxer(connexions_nodes) -> dict:
-    """
-    Llegeix un fitxer JSON que conté informació de les connexions entre nodes i retorna un diccionari de llista d'adjacència.
+class Route():
+    def __init__(self):
+        self.connection_nodes, self.info_nodes = "inputs/connection_nodes.json", "inputs/info_nodes.json"
     
-    PRE: connexions_nodes és el nom del fitxer que conté les connexions entre nodes.
-    POST: retorna un diccionari que representa la llista d'adjacència dels nodes.
-    """
-    llista_adjacencia = defaultdict(list)
-    with open(connexions_nodes, 'r') as f:
-        dades = json.load(f)
-        for entrada in dades:
-            node1, node2 = str(entrada['node1']), str(entrada['node2'])
-            distancia, temps = float(entrada['distancia']), float(entrada['temps'])
-            pes_heuristic = heuristic_graf(distancia, temps, 0.5, 0.5)
-            llista_adjacencia[node1].append((node2, pes_heuristic, distancia, temps))
-    return llista_adjacencia
+        self.adjacent_list     = self.read_file(self.connection_nodes)
+        self.coordinates_nodes = self.load_coordinates(self.info_nodes)
 
-def heuristic_graf(distancia, temps, w_distancia, w_temps):
-    """
-    Calcula el valor heurístic donat una distància i temps amb els seus pesos respectius.
-    
-    PRE: distancia i temps són valors numèrics de distància i temps respectivament.
-         w_distancia i w_temps són els pesos per la distància i el temps respectivament.
-    POST: retorna el valor heurístic calculat.
-    """
-    MAX_DISTANCIA, MAX_TEMPS = 250000, 10800
-    return (w_distancia * (distancia / MAX_DISTANCIA) + w_temps * (temps / MAX_TEMPS))
+    def read_file(self, connexions_nodes) -> dict:
+        """
+        Llegeix un fitxer JSON que conté informació de les connexions entre nodes i retorna un diccionari de llista d'adjacència.
+        
+        PRE: connexions_nodes és el nom del fitxer que conté les connexions entre nodes.
+        POST: retorna un diccionari que representa la llista d'adjacència dels nodes.
+        """
+        adjacent_list = defaultdict(list)
+        with open(connexions_nodes, 'r') as f:
+            dades = json.load(f)
+            for entrada in dades:
+                node1, node2 = str(entrada['node1']), str(entrada['node2'])
+                distancia, temps = float(entrada['distancia']), float(entrada['temps'])
+                pes_heuristic = self.heuristc_graph(distancia, temps, 0.5, 0.5)
+                adjacent_list[node1].append((node2, pes_heuristic, distancia, temps))
+        return adjacent_list
 
-def obtenir_coordenades(_id, coordenades_nodes):
-    """
-    Obté les coordenades d'un node donat el seu ID.
-    
-    PRE: _id és l'identificador del node.
-         coordenades_nodes és un diccionari amb les coordenades dels nodes.
-    POST: retorna una tupla amb la longitud i latitud del node.
-    """
-    return coordenades_nodes.get(_id, (None, None))
+    def heuristc_graph(self, distancia, temps, w_distancia, w_temps):
+        """
+        Calcula el valor heurístic donat una distància i temps amb els seus pesos respectius.
+        
+        PRE: distancia i temps són valors numèrics de distància i temps respectivament.
+            w_distancia i w_temps són els pesos per la distància i el temps respectivament.
+        POST: retorna el valor heurístic calculat.
+        """
+        MAX_DISTANCIA, MAX_TEMPS = 250000, 10800
+        return (w_distancia * (distancia / MAX_DISTANCIA) + w_temps * (temps / MAX_TEMPS))
 
-def distancia(coord1, coord2):
-    """
-    Calcula la distància euclidiana entre dues coordenades.
-    
-    PRE: coord1 i coord2 són tuples que contenen longitud i latitud.
-    POST: retorna la distància euclidiana entre les dues coordenades.
-    """
-    lon1, lat1 = coord1
-    lon2, lat2 = coord2
-    return math.sqrt((lon2 - lon1)**2 + (lat2 - lat1)**2)
+    def obtain_coordinates(self, _id, coordinates_nodes):
+        """
+        Obté les coordenades d'un node donat el seu ID.
+        
+        PRE: _id és l'identificador del node.
+            coordenades_nodes és un diccionari amb les coordenades dels nodes.
+        POST: retorna una tupla amb la longitud i latitud del node.
+        """
+        return coordinates_nodes.get(_id, (None, None))
 
-def trobar_node_mes_proper(coordenades_objectiu, coordenades_nodes):
-    """
-    Troba el node més proper a unes coordenades donades.
-    
-    PRE: coordenades_objectiu és una tupla amb longitud i latitud de l'objectiu.
-         coordenades_nodes és un diccionari amb les coordenades dels nodes.
-    POST: retorna l'ID del node més proper a les coordenades objectiu.
-    """
-    return min(coordenades_nodes, key=lambda _id: distancia(coordenades_objectiu, coordenades_nodes[_id]))
+    def distance(self, coord1, coord2):
+        """
+        Calcula la distància euclidiana entre dues coordenades.
+        
+        PRE: coord1 i coord2 són tuples que contenen longitud i latitud.
+        POST: retorna la distància euclidiana entre les dues coordenades.
+        """
+        lon1, lat1 = coord1
+        lon2, lat2 = coord2
+        return math.sqrt((lon2 - lon1)**2 + (lat2 - lat1)**2)
 
-def cerca_cost_uniforme(llista_adjacencia: dict, origen: str, desti: str):
-    """
-    Implementa l'algorisme de cerca de cost uniforme per trobar el camí òptim entre dos nodes.
-    
-    PRE: llista_adjacencia és un diccionari que representa la llista d'adjacència dels nodes.
-         origen és l'ID del node d'origen.
-         desti és l'ID del node de destí.
-    POST: retorna el camí òptim, el cost total, la distància total i el temps total.
-    """
-    cua_prioritat = [(0, 0, 0, origen, [origen])]
-    visitats = set()
-    while cua_prioritat:
-        cost, dist_total, temps_total, node, cami = heapq.heappop(cua_prioritat)
-        if node == desti:
-            return cami, cost, dist_total, temps_total
-        if node not in visitats:
-            visitats.add(node)
-            for vei, pes, dist, temps in llista_adjacencia[node]:
-                if vei not in visitats:
-                    heapq.heappush(cua_prioritat, (cost + pes, dist_total + dist, temps_total + temps, vei, cami + [vei]))
-    return [], float('inf'), float('inf'), float('inf')
+    def find_closest_node(self, dest_coordinates, coordinates_nodes):
+        """
+        Troba el node més proper a unes coordenades donades.
+        
+        PRE: coordenades_objectiu és una tupla amb longitud i latitud de l'objectiu.
+            coordenades_nodes és un diccionari amb les coordenades dels nodes.
+        POST: retorna l'ID del node més proper a les coordenades objectiu.
+        """
+        return min(coordinates_nodes, key=lambda _id: self.distance(dest_coordinates, coordinates_nodes[_id]))
 
-def carregar_coordenades(info_nodes):
-    """
-    Carrega les coordenades dels nodes des d'un fitxer JSON.
+    def uniform_cost_search(self, adjacent_list: dict, origin: str, dest: str):
+        """
+        Implementa l'algorisme de cerca de cost uniforme per trobar el camí òptim entre dos nodes.
+        
+        PRE: llista_adjacencia és un diccionari que representa la llista d'adjacència dels nodes.
+            origen és l'ID del node d'origen.
+            desti és l'ID del node de destí.
+        POST: retorna el camí òptim, el cost total, la distància total i el temps total.
+        """
+        priority_queue = [(0, 0, 0, origin, [origin])]
+        visitats = set()
+        while priority_queue:
+            cost, dist_total, temps_total, node, cami = heapq.heappop(priority_queue)
+            if node == dest:
+                return cami, cost, dist_total, temps_total
+            if node not in visitats:
+                visitats.add(node)
+                for vei, pes, dist, temps in adjacent_list[node]:
+                    if vei not in visitats:
+                        heapq.heappush(priority_queue, (cost + pes, dist_total + dist, temps_total + temps, vei, cami + [vei]))
+        return [], float('inf'), float('inf'), float('inf')
+
+    def load_coordinates(self, info_nodes):
+        """
+        Carrega les coordenades dels nodes des d'un fitxer JSON.
+        
+        PRE: info_nodes és el nom del fitxer que conté la informació dels nodes.
+        POST: retorna un diccionari amb les coordenades dels nodes.
+        """
+        with open(info_nodes, 'r') as f:
+            return {str(entrada['_id']): (entrada['coordenades']['longitud'], entrada['coordenades']['latitud']) for entrada in json.load(f)}
+
+    def find_route(self, lat_origin, long_origin, lat_dest, long_dest):
+        node_origen = self.find_closest_node((long_origin, lat_origin), self.coordinates_nodes)
+        node_desti  = self.find_closest_node((long_dest, lat_dest), self.coordinates_nodes)
     
-    PRE: info_nodes és el nom del fitxer que conté la informació dels nodes.
-    POST: retorna un diccionari amb les coordenades dels nodes.
-    """
-    with open(info_nodes, 'r') as f:
-        return {str(entrada['_id']): (entrada['coordenades']['longitud'], entrada['coordenades']['latitud']) for entrada in json.load(f)}
+        optimal_route, cost_total, dist_total, time_total = self.uniform_cost_search(self.adjacent_list, node_origen, node_desti)
+        if not optimal_route:
+            raise ValueError("No obtimal route has been found.")
+        
+        if cost_total == float('inf'):
+            raise ValueError("The route exceeds the autonomy of the vehicle.")
+        
+        coordinates = [{"longitud": long_origin, "latitud": lat_origin}] + [
+            {"longitud": lon, "latitud": lat} for node in optimal_route for lon, lat in [self.obtain_coordinates(node, self.coordinates_nodes)]
+        ] + [{"longitud": long_dest, "latitud": lat_dest}]
+        
+        return {
+            "route": coordinates,
+            #"preu_ruta": round(dist_total / 1000 * preu_km, 2),
+            #"consumption": round(dist_total / 1000 * consum_kWh, 2),
+            "distance": round(dist_total / 1000, 2),
+            "time": round(time_total / 60, 2),
+            #"necessary_battery": round(dist_total / 1000 * consum_kWh / capacitat_bateria_kWh * 100, 2)
+        }
 
 def main(lat_origen, long_origen, lat_desti, long_desti, preu_km, consum_kWh, capacitat_bateria_kWh):
     """
