@@ -3,11 +3,13 @@ import heapq
 import json
 import math
 import sys
+import random
 
 class Route():
     def __init__(self):
         self.connection_nodes, self.info_nodes = "inputs/connection_nodes.json", "inputs/info_nodes.json"
     
+        self.nodes = []
         self.adjacent_list     = self.read_file(self.connection_nodes)
         self.coordinates_nodes = self.load_coordinates(self.info_nodes)
 
@@ -23,7 +25,7 @@ class Route():
             dades = json.load(f)
             for entrada in dades:
                 node1, node2 = str(entrada['node1']), str(entrada['node2'])
-                distancia, temps = float(entrada['distancia']), float(entrada['temps'])
+                distancia, temps = float(entrada['distance']), float(entrada['time'])
                 pes_heuristic = self.heuristc_graph(distancia, temps, 0.5, 0.5)
                 adjacent_list[node1].append((node2, pes_heuristic, distancia, temps))
         return adjacent_list
@@ -100,73 +102,43 @@ class Route():
         POST: retorna un diccionari amb les coordenades dels nodes.
         """
         with open(info_nodes, 'r') as f:
-            return {str(entrada['_id']): (entrada['coordenades']['longitud'], entrada['coordenades']['latitud']) for entrada in json.load(f)}
+            obj = {str(entrada['node_id']): (entrada['coordinates']['longitude'], entrada['coordinates']['latitude']) for entrada in json.load(f)}
+        self.nodes = list(obj.keys())
+        return obj
+
+    def get_random_node(self):
+        """
+        Obtain a random node from the dictionary 'self.coordinates_nodes'
+        """
+        rand = random.randint(0, len(self.nodes))
+        return self.coordinates_nodes[self.nodes[rand]]
 
     def find_route(self, lat_origin, long_origin, lat_dest, long_dest):
-        node_origen = self.find_closest_node((long_origin, lat_origin), self.coordinates_nodes)
-        node_desti  = self.find_closest_node((long_dest, lat_dest), self.coordinates_nodes)
-    
-        optimal_route, cost_total, dist_total, time_total = self.uniform_cost_search(self.adjacent_list, node_origen, node_desti)
+        node_origin = self.find_closest_node((long_origin, lat_origin), self.coordinates_nodes)
+        node_dest   = self.find_closest_node((long_dest, lat_dest), self.coordinates_nodes)
+        print(f'node_origin: {node_origin}, node_dest: {node_dest}')
+
+        optimal_route, cost_total, dist_total, time_total = self.uniform_cost_search(self.adjacent_list, node_origin, node_dest)
         if not optimal_route:
-            raise ValueError("No obtimal route has been found.")
+            raise ValueError("No optimal route has been found.")
         
         if cost_total == float('inf'):
             raise ValueError("The route exceeds the autonomy of the vehicle.")
         
-        coordinates = [{"longitud": long_origin, "latitud": lat_origin}] + [
-            {"longitud": lon, "latitud": lat} for node in optimal_route for lon, lat in [self.obtain_coordinates(node, self.coordinates_nodes)]
-        ] + [{"longitud": long_dest, "latitud": lat_dest}]
+        coordinates = [{"longitude": long_origin, "latitude": lat_origin}] + [
+            {"longitude": lon, "latitude": lat} for node in optimal_route for lon, lat in [self.obtain_coordinates(node, self.coordinates_nodes)]
+        ] + [{"longitude": long_dest, "latitude": lat_dest}]
         
         return {
             "route": coordinates,
-            #"preu_ruta": round(dist_total / 1000 * preu_km, 2),
             #"consumption": round(dist_total / 1000 * consum_kWh, 2),
             "distance": round(dist_total / 1000, 2),
             "time": round(time_total / 60, 2),
             #"necessary_battery": round(dist_total / 1000 * consum_kWh / capacitat_bateria_kWh * 100, 2)
         }
 
-def main(lat_origen, long_origen, lat_desti, long_desti, preu_km, consum_kWh, capacitat_bateria_kWh):
-    """
-    Funció principal que calcula la ruta òptima entre dos punts donats.
-    
-    PRE: lat_origen i long_origen són les coordenades de l'origen.
-         lat_desti i long_desti són les coordenades del destí.
-         preu_km és el preu per quilòmetre.
-         consum_kWh és el consum en kWh per quilòmetre.
-         capacitat_bateria_kWh és la capacitat de la bateria en kWh.
-    POST: retorna un diccionari amb la informació de la ruta òptima.
-    """
-    connexions_nodes, info_nodes = "inputs/connexio_nodes.json", "inputs/info_nodes.json"
-    
-    llista_adjacencia = llegir_fitxer(connexions_nodes)
-    coordenades_nodes = carregar_coordenades(info_nodes)
-    
-    node_origen = trobar_node_mes_proper((long_origen, lat_origen), coordenades_nodes)
-    node_desti = trobar_node_mes_proper((long_desti, lat_desti), coordenades_nodes)
-    
-    cami_optim, cost_total, dist_total, temps_total = cerca_cost_uniforme(llista_adjacencia, node_origen, node_desti)
-    
-    if not cami_optim:
-        raise ValueError("No s'ha trobat una ruta òptima.")
-    
-    if cost_total == float('inf'):
-        raise ValueError("La ruta supera l'autonomia del vehicle elèctric-autònom.")
-    
-    coordenades = [{"longitud": long_origen, "latitud": lat_origen}] + [
-        {"longitud": lon, "latitud": lat} for node in cami_optim for lon, lat in [obtenir_coordenades(node, coordenades_nodes)]
-    ] + [{"longitud": long_desti, "latitud": lat_desti}]
-    
-    return {
-        "ruta": coordenades,
-        "preu_ruta": round(dist_total / 1000 * preu_km, 2),
-        "consum": round(dist_total / 1000 * consum_kWh, 2),
-        "distancia": round(dist_total / 1000, 2),
-        "temps": round(temps_total / 60, 2),
-        "bateria_necessaria": round(dist_total / 1000 * consum_kWh / capacitat_bateria_kWh * 100, 2)
-    }
-
 if __name__ == '__main__':
+    route = Route()
     if len(sys.argv) != 8:
         exit(-1)
     lat_origin  = float(sys.argv[1])
@@ -177,4 +149,4 @@ if __name__ == '__main__':
     consumption = float(sys.argv[6])
     capacity    = float(sys.argv[7])
 
-    print(json.dumps(main(lat_origin, long_origin, lat_dest, long_dest, price_km, consumption, capacity), indent=4))
+    print(json.dumps(route.find_route(lat_origin, long_origin, lat_dest, long_dest, price_km, consumption, capacity), indent=4))
