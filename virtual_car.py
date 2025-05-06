@@ -118,14 +118,18 @@ def run_car(car: dict, q: multiprocessing.Queue, route: Route, token: str):
     Run the car autonomously around the city.
     """
     while True:
-        latitude  = int(car['edgedevice']['latitude'])
-        longitude = int(car['edgedevice']['longitude'])
+        latitude  = float(car['edgedevice']['latitude'])
+        longitude = float(car['edgedevice']['longitude'])
         dest_lat  = latitude
         dest_long = longitude
-        while dest_lat == latitude and dest_long == longitude:
-            dest_lat, dest_long = route.get_random_node()
-        print(f'dest_lat: {dest_lat}, dest_long: {dest_long}')
-        car_route = route.find_route(latitude, longitude, dest_lat, dest_long)
+        success = False
+        while dest_lat == latitude and dest_long == longitude or success is False:
+            dest_long, dest_lat = route.get_random_node()
+            try:
+                car_route = route.find_route(latitude, longitude, dest_lat, dest_long)
+                success = True
+            except Exception as e:
+                print(f"Error: {e}")
         execute_route(car, car_route, token)
         print(f"""Finished route for car {car['car']['licenseplate']}""")
 
